@@ -26,6 +26,3 @@ jobs:
             -n applications \
             --wait \
             --timeout 30m
-
-      - name: Delete Job on success
-        run: helm uninstall $RELEASE -n applications
