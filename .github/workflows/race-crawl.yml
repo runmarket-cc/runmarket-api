@@ -20,28 +20,14 @@ jobs:
           repository: ${{ github.repository_owner }}/iac
           token: ${{ secrets.IAC_REPO_TOKEN }}
 
-      - name: Create batch Job
+      - name: Create and wait for batch Job
         run: |
           RELEASE="race-crawl-$(date +%Y%m%d%H%M%S)"
-          helm install $RELEASE ./helm/runmarket-batch -n applications
           echo "RELEASE=$RELEASE" >> $GITHUB_ENV
-
-      - name: Wait for Job completion
-        run: |
-          kubectl wait job/$RELEASE \
-            --for=condition=complete \
-            --timeout=30m \
-            -n applications
+          helm install $RELEASE ./helm/runmarket-batch \
+            -n applications \
+            --wait \
+            --timeout 30m
 
       - name: Delete Job on success
         run: helm uninstall $RELEASE -n applications
-
-      - name: Print Job logs
-        if: failure()
-        run: |
-          POD_NAME=$(kubectl get pods -n applications \
-            -l job-name=$RELEASE \
-            -o jsonpath='{.items[0].metadata.name}')
-
-          echo "=== Logs for $POD_NAME ==="
-          kubectl logs $POD_NAME -n applications
