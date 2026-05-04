@@ -20,11 +20,9 @@ jobs:
           repository: ${{ github.repository_owner }}/iac
           token: ${{ secrets.IAC_REPO_TOKEN }}
 
-      - name: Create and wait for batch Job
+      - name: Run batch Job
         run: |
-          RELEASE="race-crawl-$(date +%Y%m%d%H%M%S)"
-          echo "RELEASE=$RELEASE" >> $GITHUB_ENV
-          helm install $RELEASE ./helm/runmarket-batch \
+          helm upgrade --install race-crawl ./helm/runmarket-batch \
             -n applications \
             --wait \
             --timeout 30m
