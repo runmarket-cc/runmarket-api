@@ -1,4 +1,4 @@
-package com.runmarket.pacer.socket.interceptor;
+package com.runmarket.pacer.socket.security;
 
 import com.runmarket.pacer.socket.exception.JwtAuthException;
 import com.runmarket.pacer.socket.model.WsRole;
@@ -7,49 +7,51 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import io.netty.util.internal.StringUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextImpl;
+import org.springframework.security.web.server.context.ServerSecurityContextRepository;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.socket.WebSocketSession;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @Component
-public class JwtHandshakeInterceptor {
+public class JwtSecurityContextRepository implements ServerSecurityContextRepository {
 
     private final SecretKey secretKey;
 
-    public JwtHandshakeInterceptor(@Value("${jwt.secret}") String secret) {
+    public JwtSecurityContextRepository(@Value("${jwt.secret}") String secret) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public Mono<WsSessionAttributes> validate(WebSocketSession session) {
+    @Override
+    public Mono<Void> save(ServerWebExchange exchange, SecurityContext context) {
+        return Mono.empty();
+    }
+
+    @Override
+    public Mono<SecurityContext> load(ServerWebExchange exchange) {
+        String token = exchange.getRequest().getQueryParams().getFirst("token");
+        if (token == null || token.isBlank()) return Mono.empty();
+
         return Mono.fromCallable(() -> {
-            String token = extractToken(session);
-            Claims claims = parseClaims(token);
-            return toSessionAttributes(claims);
+            WsSessionAttributes attrs = parseToken(token);
+            return (SecurityContext) new SecurityContextImpl(new WsAuthenticationToken(attrs));
+        }).onErrorResume(JwtAuthException.class, e -> {
+            log.warn("JWT validation failed: {}", e.getMessage());
+            return Mono.empty();
         });
     }
 
-    private String extractToken(WebSocketSession session) {
-        String token = UriComponentsBuilder
-                .fromUri(session.getHandshakeInfo().getUri())
-                .build()
-                .getQueryParams()
-                .getFirst("token");
-
-        if (StringUtil.isNullOrEmpty(token)) {
-            throw new JwtAuthException("Missing token");
-        }
-        return token;
-    }
-
-    private Claims parseClaims(String token) {
+    private WsSessionAttributes parseToken(String token) {
+        Claims claims;
         try {
-            return Jwts.parser()
+            claims = Jwts.parser()
                     .verifyWith(secretKey)
                     .build()
                     .parseSignedClaims(token)
@@ -57,9 +59,7 @@ public class JwtHandshakeInterceptor {
         } catch (JwtException e) {
             throw new JwtAuthException("Invalid token: " + e.getMessage());
         }
-    }
 
-    private WsSessionAttributes toSessionAttributes(Claims claims) {
         String wsRoleStr = claims.get("wsRole", String.class);
         if (wsRoleStr == null) throw new JwtAuthException("Missing wsRole claim");
 
