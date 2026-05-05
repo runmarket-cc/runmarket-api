@@ -4,6 +4,7 @@ import com.runmarket.pacer.domain.exception.TurnstileVerificationException;
 import com.runmarket.pacer.domain.port.out.verification.CaptchaVerificationPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -12,6 +13,7 @@ import org.springframework.web.client.RestClient;
 
 @Slf4j
 @Component
+@Profile("prod")
 public class TurnstileAdapter implements CaptchaVerificationPort {
 
     private static final String SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";

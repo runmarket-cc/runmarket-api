@@ -44,22 +44,20 @@ public class JwtTokenProvider implements TokenProvider, SocketTokenProvider {
     }
 
     @Override
-    public AuthToken generateRunnerToken(User user, String raceId, String groupId, String runnerId) {
+    public AuthToken generateRunnerToken(User user, String groupId, String runnerId) {
         return build(Jwts.builder()
                 .subject(user.getEmail())
                 .claim("wsRole", "RUNNER")
-                .claim("raceId", raceId)
                 .claim("groupId", groupId)
                 .claim("runnerId", runnerId));
     }
 
     @Override
-    public AuthToken generateSpectatorToken(User user, String raceId, List<String> groupIds) {
+    public AuthToken generateSpectatorToken(User user, String groupId) {
         return build(Jwts.builder()
                 .subject(user.getEmail())
                 .claim("wsRole", "SPECTATOR")
-                .claim("raceId", raceId)
-                .claim("groupIds", groupIds));
+                .claim("groupId", groupId));
     }
 
     private AuthToken build(JwtBuilder builder) {
