@@ -10,33 +10,26 @@ import com.runmarket.pacer.web.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
-@RequestMapping("/api/v1/races")
+@RequestMapping("/api/v1/socket-token")
 @RequiredArgsConstructor
 public class SocketTokenController {
 
     private final IssueSocketTokenUseCase issueSocketTokenUseCase;
     private final TokenResponseMapper tokenResponseMapper;
 
-    @PostMapping("/{raceId}/socket-token")
-    public ResponseEntity<TokenResponse> issue(
-            @PathVariable UUID raceId,
-            @Valid @RequestBody SocketTokenRequest request) {
+    @PostMapping
+    public ResponseEntity<TokenResponse> issue(@Valid @RequestBody SocketTokenRequest request) {
         AuthToken token = issueSocketTokenUseCase.issue(new IssueSocketTokenCommand(
                 SecurityUtils.currentUserEmail(),
-                raceId,
                 request.role(),
                 request.groupId(),
-                request.runnerId(),
-                request.groupIds()
+                request.runnerId()
         ));
         return ResponseEntity.ok(tokenResponseMapper.toResponse(token));
     }

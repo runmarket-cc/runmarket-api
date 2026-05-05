@@ -16,9 +16,6 @@ import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 @Component
 public class JwtHandshakeInterceptor {
@@ -73,19 +70,12 @@ public class JwtHandshakeInterceptor {
             throw new JwtAuthException("Unknown wsRole: " + wsRoleStr);
         }
 
-        String raceId = claims.get("raceId", String.class);
-        if (raceId == null) throw new JwtAuthException("Missing raceId claim");
+        String groupId = claims.get("groupId", String.class);
+        if (groupId == null) throw new JwtAuthException("Missing groupId claim");
 
-        if (role == WsRole.RUNNER) {
-            String groupId = claims.get("groupId", String.class);
-            String runnerId = claims.get("runnerId", String.class);
-            if (groupId == null) throw new JwtAuthException("Missing groupId claim");
-            if (runnerId == null) throw new JwtAuthException("Missing runnerId claim");
-            return new WsSessionAttributes(claims.getSubject(), raceId, role, runnerId, Set.of(groupId));
-        } else {
-            List<String> groupIds = claims.get("groupIds", List.class);
-            if (groupIds == null || groupIds.isEmpty()) throw new JwtAuthException("Missing groupIds claim");
-            return new WsSessionAttributes(claims.getSubject(), raceId, role, null, new HashSet<>(groupIds));
-        }
+        String runnerId = claims.get("runnerId", String.class);
+        if (role == WsRole.RUNNER && runnerId == null) throw new JwtAuthException("Missing runnerId claim");
+
+        return new WsSessionAttributes(claims.getSubject(), role, groupId, runnerId);
     }
 }

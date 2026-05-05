@@ -1,13 +1,16 @@
 package com.runmarket.pacer.web.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-
-import java.util.List;
 
 public record SocketTokenRequest(
         @NotBlank String role,
         @NotBlank String groupId,
-        @NotBlank String runnerId,
-        @NotEmpty List<String> groupIds
-) {}
+        String runnerId
+) {
+    @AssertTrue(message = "RUNNER는 runnerId가 필요합니다.")
+    private boolean isRunnerFieldsValid() {
+        if (!"RUNNER".equals(role)) return true;
+        return runnerId != null && !runnerId.isBlank();
+    }
+}
