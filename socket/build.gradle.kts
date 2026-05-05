@@ -14,12 +14,19 @@ jib {
     }
 }
 
+val jjwt = "0.13.0"
+
 dependencies {
     implementation(project(":application"))
     implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
+
+    implementation("io.jsonwebtoken:jjwt-api:$jjwt")
     testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwt")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwt")
     runtimeOnly(project(":infrastructure"))
     runtimeOnly(project(":event-bus"))
 }
