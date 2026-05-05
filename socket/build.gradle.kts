@@ -15,7 +15,8 @@ jib {
 }
 
 val jjwt = "0.13.0"
-val tes
+val testcontainers = "2.2.2"
+val testcontainersCore = "1.20.4"
 
 dependencies {
     implementation(project(":application"))
@@ -27,6 +28,9 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-api:$jjwt")
     testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter:$testcontainersCore")
+    testImplementation("com.redis:testcontainers-redis:$testcontainers")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwt")
