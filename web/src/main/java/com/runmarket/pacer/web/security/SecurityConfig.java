@@ -33,7 +33,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/races/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/races/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/races/*/socket-token").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/races/*/like").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/races/*/like").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me").hasRole("USER")

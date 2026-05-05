@@ -3,6 +3,8 @@ package com.runmarket.pacer.web.security;
 import com.runmarket.pacer.domain.model.User;
 import com.runmarket.pacer.domain.port.in.auth.AuthToken;
 import com.runmarket.pacer.domain.port.out.auth.TokenProvider;
+import com.runmarket.pacer.domain.port.out.socket.SocketTokenProvider;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -18,7 +20,7 @@ import java.util.Date;
 import java.util.List;
 
 @Component
-public class JwtTokenProvider implements TokenProvider {
+public class JwtTokenProvider implements TokenProvider, SocketTokenProvider {
 
     private final SecretKey secretKey;
     private final long expirationMs;
@@ -36,14 +38,37 @@ public class JwtTokenProvider implements TokenProvider {
                 .map(role -> role.getRoleType().name())
                 .toList();
 
+        return build(Jwts.builder()
+                .subject(user.getEmail())
+                .claim("roles", roles));
+    }
+
+    @Override
+    public AuthToken generateRunnerToken(User user, String raceId, String groupId, String runnerId) {
+        return build(Jwts.builder()
+                .subject(user.getEmail())
+                .claim("wsRole", "RUNNER")
+                .claim("raceId", raceId)
+                .claim("groupId", groupId)
+                .claim("runnerId", runnerId));
+    }
+
+    @Override
+    public AuthToken generateSpectatorToken(User user, String raceId, List<String> groupIds) {
+        return build(Jwts.builder()
+                .subject(user.getEmail())
+                .claim("wsRole", "SPECTATOR")
+                .claim("raceId", raceId)
+                .claim("groupIds", groupIds));
+    }
+
+    private AuthToken build(JwtBuilder builder) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         LocalDateTime expiresAt = LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(expiry.getTime()), ZoneId.systemDefault());
 
-        String token = Jwts.builder()
-                .subject(user.getEmail())
-                .claim("roles", roles)
+        String token = builder
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
