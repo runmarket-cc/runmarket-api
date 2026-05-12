@@ -29,3 +29,9 @@ app:
   admin:
     email: ${ADMIN_EMAIL}
     password: ${ADMIN_PASSWORD}
+  seoul-air-district:
+    url: http://openAPI.seoul.go.kr:8088/${SEOUL_API_KEY}/json/ListAirQualityByDistrictService/1/20/
+    fallback-url: https://gist.githubusercontent.com/GHGHGHKO/d668b7dc3fc397d36b4be38756118184/raw/3e9069422872b612e5c49fc36ac8813d2cbe5c7f/air.json
+  llm:
+    url: http://ollama.ollama.svc.cluster.local
+    model: gemma4:e2b
