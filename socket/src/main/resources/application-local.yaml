@@ -1,0 +1,5 @@
+jwt:
+  secret: runmarket-secret-key-must-be-at-least-512-bits-for-hs512-algorithm!!!
+
+server:
+  port: 8080

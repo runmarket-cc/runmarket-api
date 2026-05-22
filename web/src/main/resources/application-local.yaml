@@ -17,7 +17,7 @@ spring:
         format_sql: true
 
 jwt:
-  secret: runmarket-secret-key-must-be-at-least-256-bits-long
+  secret: runmarket-secret-key-must-be-at-least-512-bits-for-hs512-algorithm!!!
   expiration: 86400000
 
 logging:
