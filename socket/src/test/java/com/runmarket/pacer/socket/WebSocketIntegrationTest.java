@@ -116,14 +116,13 @@ class WebSocketIntegrationTest {
         // 2. 러너가 Redis에 등록될 때까지 대기
         Mono.delay(Duration.ofMillis(400)).block();
 
-        // 3. 다른 그룹 관전자는 POLICY_VIOLATION으로 연결 종료
+        // 3. 다른 그룹 관전자는 POLICY_VIOLATION close frame 수신 후 정상 종료
         StepVerifier.create(
                         client.execute(spectatorUri, session ->
                                 session.receive().then()
-                        ).timeout(Duration.ofSeconds(3))
+                        )
                 )
-                .expectError()
-                .verify(Duration.ofSeconds(5));
+                .verifyComplete();
     }
 
     private URI uri(String path, String token) {
