@@ -1,4 +1,4 @@
-package com.runmarket.pacer.web.security;
+package com.runmarket.pacer.infrastructure.security;
 
 import com.runmarket.pacer.domain.model.User;
 import com.runmarket.pacer.domain.port.in.auth.AuthToken;
