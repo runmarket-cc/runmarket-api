@@ -63,4 +63,9 @@ public class RacePersistenceAdapter implements RaceRepository {
                 .map(raceMapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public void deleteAll() {
+        raceJpaRepository.deleteAll();
+    }
 }

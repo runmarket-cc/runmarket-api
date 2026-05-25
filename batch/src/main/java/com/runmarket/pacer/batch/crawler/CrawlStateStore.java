@@ -25,11 +25,17 @@ public class CrawlStateStore {
 
     private final Path stateFile;
     private final Map<String, String> state;
+    private final boolean firstRun;
 
     public CrawlStateStore(@Value("${marathon-race.state-file:crawl_state.json}") String path) {
         this.stateFile = Path.of(path);
+        this.firstRun = !Files.exists(stateFile);
         this.state = loadState();
-        log.info("상태 파일 로드 완료: {}건 ({})", state.size(), stateFile.toAbsolutePath());
+        log.info("상태 파일 로드 완료: {}건 ({}) firstRun={}", state.size(), stateFile.toAbsolutePath(), firstRun);
+    }
+
+    public boolean isFirstRun() {
+        return firstRun;
     }
 
     public String computeHash(SaveRaceCommand command) {

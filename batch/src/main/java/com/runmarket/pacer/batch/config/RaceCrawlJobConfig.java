@@ -30,10 +30,12 @@ public class RaceCrawlJobConfig {
     private final SaveRaceUseCase saveRaceUseCase;
     private final CrawlStateStore stateStore;
     private final RaceCrawlSkipListener skipListener;
+    private final RaceResetJobListener resetListener;
 
     @Bean
     public Job raceCrawlJob(JobRepository jobRepository, Step raceCrawlStep) {
         return new JobBuilder("raceCrawlJob", jobRepository)
+                .listener(resetListener)
                 .start(raceCrawlStep)
                 .build();
     }
