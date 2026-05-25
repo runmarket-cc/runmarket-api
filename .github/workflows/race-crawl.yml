@@ -33,14 +33,11 @@ jobs:
           token: ${{ secrets.IAC_REPO_TOKEN }}
           path: iac
 
-      - name: Force reset crawl state
-        if: ${{ inputs.force_reset == true }}
-        run: rm -f /data/runmarket/batch/crawl_state.json
-
       - name: Run batch Job
         run: |
           helm upgrade --install race-crawl ./iac/helm/runmarket-batch \
             -n applications \
+            --set forceReset=${{ inputs.force_reset || 'false' }} \
             --wait \
             --timeout 30m
 

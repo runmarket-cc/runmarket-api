@@ -54,6 +54,16 @@ public class CrawlStateStore {
         return hash.equals(state.get(String.valueOf(no)));
     }
 
+    public void clear() {
+        state.clear();
+        try {
+            Files.deleteIfExists(stateFile);
+            log.info("상태 파일 초기화 완료: {}", stateFile.toAbsolutePath());
+        } catch (IOException e) {
+            log.warn("상태 파일 삭제 실패: {}", e.getMessage());
+        }
+    }
+
     public void markUpdated(int no, String hash) {
         state.put(String.valueOf(no), hash);
     }
