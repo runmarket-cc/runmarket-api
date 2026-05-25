@@ -62,4 +62,5 @@ jobs:
       - name: Helm upgrade
         run: |
           helm upgrade runmarket ./iac/helm/runmarket -n applications
-          helm upgrade runmarket ./iac/helm/runmarket-socket -n applications
+          helm upgrade runmarket-batch ./iac/helm/runmarket-batch -n applications
+          helm upgrade runmarket-socket ./iac/helm/runmarket-socket -n applications
