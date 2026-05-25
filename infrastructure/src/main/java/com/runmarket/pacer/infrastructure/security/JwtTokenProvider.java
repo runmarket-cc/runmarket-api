@@ -9,6 +9,7 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -20,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 
 @Component
+@ConditionalOnProperty(name = "jwt.expiration")
 public class JwtTokenProvider implements TokenProvider, SocketTokenProvider {
 
     private final SecretKey secretKey;

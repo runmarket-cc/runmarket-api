@@ -7,6 +7,7 @@ import com.runmarket.pacer.domain.port.in.socket.IssueSocketTokenUseCase;
 import com.runmarket.pacer.domain.port.out.socket.SocketTokenProvider;
 import com.runmarket.pacer.domain.port.out.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import java.util.NoSuchElementException;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@ConditionalOnBean(SocketTokenProvider.class)
 public class SocketTokenService implements IssueSocketTokenUseCase {
 
     private final UserRepository userRepository;
