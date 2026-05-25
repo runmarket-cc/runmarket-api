@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 15 * * *'  # 매일 자정 KST (UTC+9)
   workflow_dispatch:
+    inputs:
+      force_reset:
+        description: 'crawl_state.json 삭제 후 전체 재크롤'
+        type: boolean
+        default: false
 
 concurrency:
   group: race-crawl
@@ -27,6 +32,10 @@ jobs:
           repository: ${{ github.repository_owner }}/iac
           token: ${{ secrets.IAC_REPO_TOKEN }}
           path: iac
+
+      - name: Force reset crawl state
+        if: ${{ inputs.force_reset == true }}
+        run: rm -f /data/runmarket/batch/crawl_state.json
 
       - name: Run batch Job
         run: |
