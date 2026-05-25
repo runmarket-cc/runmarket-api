@@ -1,6 +1,7 @@
 package com.runmarket.pacer.application.service;
 
 import com.runmarket.pacer.domain.model.Race;
+import com.runmarket.pacer.domain.port.in.race.DeleteAllRacesUseCase;
 import com.runmarket.pacer.domain.port.in.race.GetRaceUseCase;
 import com.runmarket.pacer.domain.port.in.race.GetRacesUseCase;
 import com.runmarket.pacer.domain.port.in.race.SaveRaceCommand;
@@ -21,7 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class RaceService implements SaveRaceUseCase, GetRacesUseCase, GetRaceUseCase {
+public class RaceService implements SaveRaceUseCase, GetRacesUseCase, GetRaceUseCase, DeleteAllRacesUseCase {
 
     private final RaceRepository raceRepository;
 
@@ -51,6 +52,13 @@ public class RaceService implements SaveRaceUseCase, GetRacesUseCase, GetRaceUse
         Race saved = raceRepository.save(race);
         log.info("Race saved: id={}, name={}", saved.getId(), saved.getName());
         return saved;
+    }
+
+    @Override
+    @CacheEvict(cacheNames = "races", allEntries = true)
+    public void deleteAll() {
+        raceRepository.deleteAll();
+        log.info("전체 대회 삭제 완료");
     }
 
     @Override

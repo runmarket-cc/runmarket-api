@@ -14,15 +14,36 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      - name: Checkout Pacer
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout IAC
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/iac
           token: ${{ secrets.IAC_REPO_TOKEN }}
+          path: iac
 
       - name: Run batch Job
         run: |
-          helm upgrade --install race-crawl ./helm/runmarket-batch \
+          helm upgrade --install race-crawl ./iac/helm/runmarket-batch \
             -n applications \
             --wait \
             --timeout 30m
+
+      - name: Copy crawl_state.json from pod
+        run: |
+          POD=$(kubectl get pods -n applications \
+            -l batch.kubernetes.io/job-name=race-crawl \
+            --field-selector=status.phase=Succeeded \
+            -o jsonpath='{.items[0].metadata.name}')
+          kubectl cp applications/$POD:/crawl_state.json crawl_state.json
+
+      - name: Commit crawl_state.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add crawl_state.json
+          git diff --staged --quiet || (git commit -m "chore: update crawl_state.json" && git push)
