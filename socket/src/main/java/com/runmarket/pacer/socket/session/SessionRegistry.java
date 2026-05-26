@@ -3,6 +3,7 @@ package com.runmarket.pacer.socket.session;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketSession;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,5 +25,11 @@ public class SessionRegistry {
 
     public Set<WebSocketSession> getSessions(String runnerId) {
         return sessions.getOrDefault(runnerId, Set.of());
+    }
+
+    public Collection<WebSocketSession> getAllSessions() {
+        return sessions.values().stream()
+                .flatMap(Collection::stream)
+                .toList();
     }
 }
