@@ -11,6 +11,7 @@ import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.publisher.Mono;
+import reactor.netty.channel.AbortedException;
 
 @Slf4j
 @Component
@@ -36,8 +37,12 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
                     };
                 })
                 .onErrorResume(e -> {
+                    if (e instanceof AbortedException) {
+                        return Mono.empty();
+                    }
                     log.error("Handler error [{}]: {}", session.getId(), e.getMessage());
-                    return session.close(CloseStatus.SERVER_ERROR);
+                    return session.close(CloseStatus.SERVER_ERROR)
+                            .onErrorResume(ignored -> Mono.empty());
                 });
     }
 
@@ -70,7 +75,7 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
 
     private Mono<Void> handleSpectator(WebSocketSession session, WsSessionAttributes attrs, String runnerId) {
         return redisTemplate.opsForValue().get(GROUP_KEY_PREFIX + runnerId)
-                .switchIfEmpty(Mono.error(new IllegalStateException("Runner not active: " + runnerId)))
+                .switchIfEmpty(Mono.error(new IllegalStateException("Runner not found: " + runnerId)))
                 .flatMap(runnerGroupId -> {
                     if (!attrs.groupId().equals(runnerGroupId)) {
                         log.warn("Group mismatch: spectator={}, runner={}", attrs.groupId(), runnerGroupId);
