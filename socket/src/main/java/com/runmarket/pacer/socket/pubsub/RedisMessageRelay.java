@@ -18,7 +18,8 @@ import reactor.core.publisher.Mono;
 @Component
 public class RedisMessageRelay {
 
-    private static final String CHANNEL_PREFIX = "runner:";
+    private static final String RUNNER_CHANNEL_PREFIX = "runner:";
+    private static final String GROUP_CHANNEL_PREFIX = "group:";
 
     private final SessionRegistry sessionRegistry;
     private final ReactiveRedisMessageListenerContainer listenerContainer;
@@ -34,7 +35,7 @@ public class RedisMessageRelay {
     @PostConstruct
     public void start() {
         subscription = listenerContainer
-                .receive(PatternTopic.of(CHANNEL_PREFIX + "*"))
+                .receive(PatternTopic.of(RUNNER_CHANNEL_PREFIX + "*"), PatternTopic.of(GROUP_CHANNEL_PREFIX + "*"))
                 .flatMap(msg -> relay(msg.getChannel(), msg.getMessage()))
                 .onErrorContinue((e, o) -> log.warn("Redis relay error: {}", e.getMessage()))
                 .subscribe();
@@ -48,8 +49,16 @@ public class RedisMessageRelay {
     }
 
     private Mono<Void> relay(String channel, String payload) {
-        String runnerId = channel.substring(CHANNEL_PREFIX.length());
-        return Flux.fromIterable(sessionRegistry.getSessions(runnerId))
+        if (channel.startsWith(GROUP_CHANNEL_PREFIX)) {
+            String groupId = channel.substring(GROUP_CHANNEL_PREFIX.length());
+            return relayToSessions(sessionRegistry.getGroupSessions(groupId), payload);
+        }
+        String runnerId = channel.substring(RUNNER_CHANNEL_PREFIX.length());
+        return relayToSessions(sessionRegistry.getSessions(runnerId), payload);
+    }
+
+    private Mono<Void> relayToSessions(Iterable<WebSocketSession> sessions, String payload) {
+        return Flux.fromIterable(sessions)
                 .filter(WebSocketSession::isOpen)
                 .flatMap(session -> session.send(Mono.just(session.textMessage(payload)))
                         .onErrorResume(e -> {
