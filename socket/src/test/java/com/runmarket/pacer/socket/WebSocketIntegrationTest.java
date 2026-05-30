@@ -2,6 +2,7 @@ package com.runmarket.pacer.socket;
 
 import com.redis.testcontainers.RedisContainer;
 import io.jsonwebtoken.Jwts;
+import static org.assertj.core.api.Assertions.assertThat;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
@@ -119,6 +120,111 @@ class WebSocketIntegrationTest {
         // 3. 다른 그룹 관전자는 POLICY_VIOLATION close frame 수신 후 정상 종료
         StepVerifier.create(
                         client.execute(spectatorUri, session ->
+                                session.receive().then()
+                        )
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void multiple_runners_in_group_group_spectator_receives_all_with_runnerId() {
+        String groupId = "MULTI-GROUP";
+        String runner1Id = "runner-multi-1";
+        String runner2Id = "runner-multi-2";
+
+        String runner1Token = runnerToken(runner1Id, groupId);
+        String runner2Token = runnerToken(runner2Id, groupId);
+        String spectatorToken = spectatorToken(groupId);
+
+        URI runner1Uri = uri("/ws/runner/" + runner1Id, runner1Token);
+        URI runner2Uri = uri("/ws/runner/" + runner2Id, runner2Token);
+        URI groupSpectatorUri = uri("/ws/group/" + groupId, spectatorToken);
+
+        String payload1 = "{\"lat\":37.1,\"lng\":127.1}";
+        String payload2 = "{\"lat\":37.2,\"lng\":127.2}";
+        String expectedMsg1 = "{\"runnerId\":\"" + runner1Id + "\",\"data\":" + payload1 + "}";
+        String expectedMsg2 = "{\"runnerId\":\"" + runner2Id + "\",\"data\":" + payload2 + "}";
+
+        Sinks.Many<String> received = Sinks.many().replay().all();
+
+        // 1. 두 러너 먼저 연결
+        client.execute(runner1Uri, session ->
+                session.send(Mono.delay(Duration.ofMillis(800)).thenReturn(session.textMessage(payload1)))
+                        .then(Mono.delay(Duration.ofSeconds(4))).then()
+        ).subscribe();
+
+        client.execute(runner2Uri, session ->
+                session.send(Mono.delay(Duration.ofMillis(1000)).thenReturn(session.textMessage(payload2)))
+                        .then(Mono.delay(Duration.ofSeconds(4))).then()
+        ).subscribe();
+
+        // 2. 러너들이 Redis에 등록될 때까지 대기
+        Mono.delay(Duration.ofMillis(400)).block();
+
+        // 3. 그룹 관전자 연결
+        client.execute(groupSpectatorUri, session ->
+                session.receive()
+                        .map(WebSocketMessage::getPayloadAsText)
+                        .take(2)
+                        .doOnNext(received::tryEmitNext)
+                        .then()
+        ).subscribe();
+
+        // 4. 두 메시지 모두 수신 확인 (순서 무관)
+        StepVerifier.create(
+                        received.asFlux().take(2).collectList().timeout(Duration.ofSeconds(6))
+                )
+                .assertNext(messages -> {
+                    assertThat(messages).hasSize(2);
+                    assertThat(messages).containsExactlyInAnyOrder(expectedMsg1, expectedMsg2);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void group_spectator_receives_only_its_group_messages() {
+        String groupA = "GROUP-A";
+        String groupB = "GROUP-B";
+        String runnerAId = "runner-group-a";
+        String runnerBId = "runner-group-b";
+
+        client.execute(uri("/ws/runner/" + runnerAId, runnerToken(runnerAId, groupA)), session ->
+                session.send(Mono.delay(Duration.ofMillis(800)).thenReturn(session.textMessage("{\"group\":\"A\"}")))
+                        .then(Mono.delay(Duration.ofSeconds(4))).then()
+        ).subscribe();
+
+        client.execute(uri("/ws/runner/" + runnerBId, runnerToken(runnerBId, groupB)), session ->
+                session.send(Mono.delay(Duration.ofMillis(800)).thenReturn(session.textMessage("{\"group\":\"B\"}")))
+                        .then(Mono.delay(Duration.ofSeconds(4))).then()
+        ).subscribe();
+
+        Mono.delay(Duration.ofMillis(400)).block();
+
+        Sinks.One<String> received = Sinks.one();
+
+        // GROUP-A 관전자는 GROUP-A 러너 메시지만 수신
+        client.execute(uri("/ws/group/" + groupA, spectatorToken(groupA)), session ->
+                session.receive()
+                        .map(WebSocketMessage::getPayloadAsText)
+                        .next()
+                        .doOnNext(received::tryEmitValue)
+                        .then()
+        ).subscribe();
+
+        StepVerifier.create(received.asMono().timeout(Duration.ofSeconds(5)))
+                .assertNext(msg -> assertThat(msg).contains("\"runnerId\":\"" + runnerAId + "\""))
+                .verifyComplete();
+    }
+
+    @Test
+    void runner_role_cannot_connect_to_group_endpoint() {
+        String runnerId = "runner-group-reject";
+        String groupId = "REJECT-GROUP";
+        String runnerToken = runnerToken(runnerId, groupId);
+
+        // RUNNER 토큰으로 /ws/group/ 접근 시 POLICY_VIOLATION close frame 후 정상 종료
+        StepVerifier.create(
+                        client.execute(uri("/ws/group/" + groupId, runnerToken), session ->
                                 session.receive().then()
                         )
                 )

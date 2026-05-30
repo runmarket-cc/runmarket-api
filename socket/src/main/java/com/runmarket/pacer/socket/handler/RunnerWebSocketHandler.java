@@ -19,7 +19,9 @@ import reactor.netty.channel.AbortedException;
 public class RunnerWebSocketHandler implements WebSocketHandler {
 
     private static final String GROUP_KEY_PREFIX = "runner:group:";
+    private static final String GROUP_MEMBERS_KEY_PREFIX = "runner:members:";
     private static final String CHANNEL_PREFIX = "runner:";
+    private static final String GROUP_CHANNEL_PREFIX = "group:";
 
     private final SessionRegistry sessionRegistry;
     private final ReactiveStringRedisTemplate redisTemplate;
@@ -53,8 +55,10 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
         }
 
         String groupKey = GROUP_KEY_PREFIX + runnerId;
+        String membersKey = GROUP_MEMBERS_KEY_PREFIX + attrs.groupId();
 
-        Mono<Boolean> setup = redisTemplate.opsForValue().set(groupKey, attrs.groupId())
+        Mono<Long> setup = redisTemplate.opsForValue().set(groupKey, attrs.groupId())
+                .then(redisTemplate.opsForSet().add(membersKey, runnerId))
                 .doOnSuccess(v -> {
                     sessionRegistry.register(runnerId, session);
                     log.info("Runner connected: runnerId={}, group={}", runnerId, attrs.groupId());
@@ -63,12 +67,19 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
         return Mono.usingWhen(
                 setup,
                 v -> session.receive()
-                        .flatMap(msg -> redisTemplate.convertAndSend(CHANNEL_PREFIX + runnerId, msg.getPayloadAsText()))
+                        .flatMap(msg -> {
+                            String payload = msg.getPayloadAsText();
+                            String groupMsg = "{\"runnerId\":\"" + runnerId + "\",\"data\":" + payload + "}";
+                            return redisTemplate.convertAndSend(CHANNEL_PREFIX + runnerId, payload)
+                                    .then(redisTemplate.convertAndSend(GROUP_CHANNEL_PREFIX + attrs.groupId(), groupMsg));
+                        })
                         .then(),
                 v -> {
                     sessionRegistry.unregister(runnerId, session);
                     log.info("Runner disconnected: runnerId={}", runnerId);
-                    return redisTemplate.delete(groupKey).then();
+                    return redisTemplate.opsForSet().remove(membersKey, (Object) runnerId)
+                            .then(redisTemplate.delete(groupKey))
+                            .then();
                 }
         );
     }

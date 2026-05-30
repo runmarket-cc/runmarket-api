@@ -1,5 +1,6 @@
 package com.runmarket.pacer.socket.config;
 
+import com.runmarket.pacer.socket.handler.GroupSpectatorWebSocketHandler;
 import com.runmarket.pacer.socket.handler.RunnerWebSocketHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,9 +14,14 @@ import java.util.Map;
 public class WebSocketConfig {
 
     @Bean
-    public HandlerMapping webSocketHandlerMapping(RunnerWebSocketHandler handler) {
+    public HandlerMapping webSocketHandlerMapping(
+            RunnerWebSocketHandler runnerHandler,
+            GroupSpectatorWebSocketHandler groupSpectatorHandler) {
         SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
-        mapping.setUrlMap(Map.of("/ws/runner/**", handler));
+        mapping.setUrlMap(Map.of(
+                "/ws/runner/**", runnerHandler,
+                "/ws/group/**", groupSpectatorHandler
+        ));
         mapping.setOrder(1);
         return mapping;
     }
