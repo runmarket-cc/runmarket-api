@@ -19,6 +19,7 @@ import reactor.netty.channel.AbortedException;
 public class RunnerWebSocketHandler implements WebSocketHandler {
 
     private static final String GROUP_KEY_PREFIX = "runner:group:";
+    private static final String SESSION_KEY_PREFIX = "runner:session:";
     private static final String GROUP_MEMBERS_KEY_PREFIX = "runner:members:";
     private static final String CHANNEL_PREFIX = "runner:";
     private static final String GROUP_CHANNEL_PREFIX = "group:";
@@ -55,9 +56,12 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
         }
 
         String groupKey = GROUP_KEY_PREFIX + runnerId;
+        String sessionKey = SESSION_KEY_PREFIX + runnerId;
         String membersKey = GROUP_MEMBERS_KEY_PREFIX + attrs.groupId();
+        String sessionId = session.getId();
 
         Mono<Long> setup = redisTemplate.opsForValue().set(groupKey, attrs.groupId())
+                .then(redisTemplate.opsForValue().set(sessionKey, sessionId))
                 .then(redisTemplate.opsForSet().add(membersKey, runnerId))
                 .doOnSuccess(v -> {
                     sessionRegistry.register(runnerId, session);
@@ -77,8 +81,12 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
                 v -> {
                     sessionRegistry.unregister(runnerId, session);
                     log.info("Runner disconnected: runnerId={}", runnerId);
-                    return redisTemplate.opsForSet().remove(membersKey, (Object) runnerId)
-                            .then(redisTemplate.delete(groupKey))
+                    // 재연결 race condition 방지: 새 연결이 이미 Redis를 덮어썼다면 정리 생략
+                    return redisTemplate.opsForValue().get(sessionKey)
+                            .filter(sessionId::equals)
+                            .flatMap(ignored -> redisTemplate.opsForSet().remove(membersKey, (Object) runnerId)
+                                    .then(redisTemplate.delete(sessionKey))
+                                    .then(redisTemplate.delete(groupKey)))
                             .then();
                 }
         );
