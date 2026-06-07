@@ -65,6 +65,7 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
                 .then(redisTemplate.opsForSet().add(membersKey, runnerId))
                 .doOnSuccess(v -> {
                     sessionRegistry.register(runnerId, session);
+                    sessionRegistry.registerGroup(attrs.groupId(), session);
                     log.info("Runner connected: runnerId={}, group={}", runnerId, attrs.groupId());
                 });
 
@@ -80,6 +81,7 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
                         .then(),
                 v -> {
                     sessionRegistry.unregister(runnerId, session);
+                    sessionRegistry.unregisterGroup(attrs.groupId(), session);
                     log.info("Runner disconnected: runnerId={}", runnerId);
                     // 재연결 race condition 방지: 새 연결이 이미 Redis를 덮어썼다면 정리 생략
                     return redisTemplate.opsForValue().get(sessionKey)
