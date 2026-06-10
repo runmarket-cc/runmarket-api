@@ -1,6 +1,7 @@
 package com.runmarket.pacer.socket.pubsub;
 
 import com.runmarket.pacer.socket.session.SessionRegistry;
+import com.runmarket.pacer.socket.session.SinkRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -8,10 +9,12 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 
 @Slf4j
@@ -22,13 +25,16 @@ public class RedisMessageRelay {
     private static final String GROUP_CHANNEL_PREFIX = "group:";
 
     private final SessionRegistry sessionRegistry;
+    private final SinkRegistry sinkRegistry;
     private final ReactiveRedisMessageListenerContainer listenerContainer;
     private Disposable subscription;
 
     public RedisMessageRelay(
             ReactiveRedisConnectionFactory connectionFactory,
-            SessionRegistry sessionRegistry) {
+            SessionRegistry sessionRegistry,
+            SinkRegistry sinkRegistry) {
         this.sessionRegistry = sessionRegistry;
+        this.sinkRegistry = sinkRegistry;
         this.listenerContainer = new ReactiveRedisMessageListenerContainer(connectionFactory);
     }
 
@@ -60,11 +66,20 @@ public class RedisMessageRelay {
     private Mono<Void> relayToSessions(Iterable<WebSocketSession> sessions, String payload) {
         return Flux.fromIterable(sessions)
                 .filter(WebSocketSession::isOpen)
-                .flatMap(session -> session.send(Mono.just(session.textMessage(payload)))
-                        .onErrorResume(e -> {
-                            log.warn("Send failed for session {}: {}", session.getId(), e.getMessage());
-                            return Mono.empty();
-                        }))
+                .flatMap(session -> {
+                    WebSocketMessage msg = session.textMessage(payload);
+                    Sinks.Many<WebSocketMessage> sink = sinkRegistry.getSink(session.getId()).orElse(null);
+                    if (sink != null) {
+                        sink.tryEmitNext(msg);
+                        return Mono.empty();
+                    }
+                    log.warn("No sink for session {}, falling back to direct send", session.getId());
+                    return session.send(Mono.just(msg))
+                            .onErrorResume(e -> {
+                                log.warn("Send failed for session {}: {}", session.getId(), e.getMessage());
+                                return Mono.empty();
+                            });
+                })
                 .then();
     }
 }
