@@ -3,15 +3,22 @@ package com.runmarket.pacer.socket.handler;
 import com.runmarket.pacer.socket.model.WsSessionAttributes;
 import com.runmarket.pacer.socket.security.WsAuthenticationToken;
 import com.runmarket.pacer.socket.session.SessionRegistry;
+import com.runmarket.pacer.socket.session.SinkRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.netty.channel.AbortedException;
+
+import java.time.Duration;
 
 @Slf4j
 @Component
@@ -23,8 +30,10 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
     private static final String GROUP_MEMBERS_KEY_PREFIX = "runner:members:";
     private static final String CHANNEL_PREFIX = "runner:";
     private static final String GROUP_CHANNEL_PREFIX = "group:";
+    private static final Duration PING_INTERVAL = Duration.ofSeconds(20);
 
     private final SessionRegistry sessionRegistry;
+    private final SinkRegistry sinkRegistry;
     private final ReactiveStringRedisTemplate redisTemplate;
 
     @Override
@@ -60,38 +69,50 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
         String membersKey = GROUP_MEMBERS_KEY_PREFIX + attrs.groupId();
         String sessionId = session.getId();
 
+        Sinks.Many<WebSocketMessage> sink = Sinks.many().unicast().onBackpressureBuffer();
+
         Mono<Long> setup = redisTemplate.opsForValue().set(groupKey, attrs.groupId())
                 .then(redisTemplate.opsForValue().set(sessionKey, sessionId))
                 .then(redisTemplate.opsForSet().add(membersKey, runnerId))
                 .doOnSuccess(v -> {
+                    sinkRegistry.register(sessionId, sink);
                     sessionRegistry.register(runnerId, session);
                     sessionRegistry.registerGroup(attrs.groupId(), session);
                     log.info("Runner connected: runnerId={}, group={}", runnerId, attrs.groupId());
                 });
 
-        return Mono.usingWhen(
-                setup,
-                v -> session.receive()
-                        .flatMap(msg -> {
-                            String payload = msg.getPayloadAsText();
-                            String groupMsg = "{\"runnerId\":\"" + runnerId + "\",\"data\":" + payload + "}";
-                            return redisTemplate.convertAndSend(CHANNEL_PREFIX + runnerId, payload)
-                                    .then(redisTemplate.convertAndSend(GROUP_CHANNEL_PREFIX + attrs.groupId(), groupMsg));
-                        })
-                        .then(),
-                v -> {
-                    sessionRegistry.unregister(runnerId, session);
-                    sessionRegistry.unregisterGroup(attrs.groupId(), session);
-                    log.info("Runner disconnected: runnerId={}", runnerId);
-                    // 재연결 race condition 방지: 새 연결이 이미 Redis를 덮어썼다면 정리 생략
-                    return redisTemplate.opsForValue().get(sessionKey)
-                            .filter(sessionId::equals)
-                            .flatMap(ignored -> redisTemplate.opsForSet().remove(membersKey, (Object) runnerId)
-                                    .then(redisTemplate.delete(sessionKey))
-                                    .then(redisTemplate.delete(groupKey)))
-                            .then();
-                }
-        );
+        Mono<Void> redisCleanup = redisTemplate.opsForValue().get(sessionKey)
+                .filter(sessionId::equals)
+                .flatMap(ignored -> redisTemplate.opsForSet().remove(membersKey, (Object) runnerId)
+                        .then(redisTemplate.delete(sessionKey))
+                        .then(redisTemplate.delete(groupKey)))
+                .then();
+
+        return setup.flatMap(v -> {
+            Disposable ping = Flux.interval(PING_INTERVAL)
+                    .subscribe(i -> sink.tryEmitNext(
+                            session.pingMessage(f -> f.wrap(new byte[0]))));
+
+            Mono<Void> receive = session.receive()
+                    .flatMap(msg -> {
+                        String payload = msg.getPayloadAsText();
+                        String groupMsg = "{\"runnerId\":\"" + runnerId + "\",\"data\":" + payload + "}";
+                        return redisTemplate.convertAndSend(CHANNEL_PREFIX + runnerId, payload)
+                                .then(redisTemplate.convertAndSend(GROUP_CHANNEL_PREFIX + attrs.groupId(), groupMsg));
+                    })
+                    .doFinally(signal -> {
+                        ping.dispose();
+                        sink.tryEmitComplete();
+                        sinkRegistry.unregister(sessionId);
+                        sessionRegistry.unregister(runnerId, session);
+                        sessionRegistry.unregisterGroup(attrs.groupId(), session);
+                        log.info("Runner disconnected: runnerId={}", runnerId);
+                    })
+                    .then()
+                    .then(redisCleanup);
+
+            return Mono.zip(session.send(sink.asFlux()), receive).then();
+        });
     }
 
     private Mono<Void> handleSpectator(WebSocketSession session, WsSessionAttributes attrs, String runnerId) {
@@ -102,19 +123,29 @@ public class RunnerWebSocketHandler implements WebSocketHandler {
                         log.warn("Group mismatch: spectator={}, runner={}", attrs.groupId(), runnerGroupId);
                         return session.close(CloseStatus.POLICY_VIOLATION);
                     }
-                    return Mono.usingWhen(
-                            Mono.fromCallable(() -> {
-                                sessionRegistry.register(runnerId, session);
-                                log.info("Spectator connected: runnerId={}, group={}", runnerId, attrs.groupId());
-                                return session;
-                            }),
-                            s -> s.receive().then(),
-                            s -> {
-                                sessionRegistry.unregister(runnerId, s);
+
+                    String sessionId = session.getId();
+                    Sinks.Many<WebSocketMessage> sink = Sinks.many().unicast().onBackpressureBuffer();
+
+                    sinkRegistry.register(sessionId, sink);
+                    sessionRegistry.register(runnerId, session);
+                    log.info("Spectator connected: runnerId={}, group={}", runnerId, attrs.groupId());
+
+                    Disposable ping = Flux.interval(PING_INTERVAL)
+                            .subscribe(i -> sink.tryEmitNext(
+                                    session.pingMessage(f -> f.wrap(new byte[0]))));
+
+                    Mono<Void> receive = session.receive()
+                            .doFinally(signal -> {
+                                ping.dispose();
+                                sink.tryEmitComplete();
+                                sinkRegistry.unregister(sessionId);
+                                sessionRegistry.unregister(runnerId, session);
                                 log.info("Spectator disconnected from runner={}", runnerId);
-                                return Mono.empty();
-                            }
-                    );
+                            })
+                            .then();
+
+                    return Mono.zip(session.send(sink.asFlux()), receive).then();
                 });
     }
 
