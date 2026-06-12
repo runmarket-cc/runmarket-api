@@ -57,6 +57,12 @@ public class UserPersistenceAdapter implements UserRepository {
 
     @Override
     @Transactional
+    public void updatePassword(UUID userId, String encodedPassword) {
+        userJpaRepository.findById(userId).ifPresent(entity -> entity.changePassword(encodedPassword));
+    }
+
+    @Override
+    @Transactional
     public void deleteById(UUID userId) {
         tokenJpaRepository.deleteByUserId(userId);
         roleJpaRepository.deleteAllByUserId(userId);

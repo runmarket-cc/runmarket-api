@@ -9,5 +9,6 @@ public interface UserRepository {
     Optional<User> findByEmail(String email);
     User save(User user);
     void updateVerified(UUID userId);
+    void updatePassword(UUID userId, String encodedPassword);
     void deleteById(UUID userId);
 }
