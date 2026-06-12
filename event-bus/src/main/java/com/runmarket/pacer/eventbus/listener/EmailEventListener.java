@@ -1,6 +1,7 @@
 package com.runmarket.pacer.eventbus.listener;
 
 import com.runmarket.pacer.domain.event.EmailVerificationEvent;
+import com.runmarket.pacer.domain.event.PasswordResetEvent;
 import com.runmarket.pacer.domain.port.out.email.EmailPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,5 +17,10 @@ public class EmailEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleEmailVerification(EmailVerificationEvent event) {
         emailPort.sendVerificationEmail(event.email(), event.verificationLink());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handlePasswordReset(PasswordResetEvent event) {
+        emailPort.sendPasswordResetEmail(event.email(), event.resetLink());
     }
 }

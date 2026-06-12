@@ -35,4 +35,8 @@ public class UserJpaEntity extends BaseEntity {
     public void verify() {
         this.verified = true;
     }
+
+    public void changePassword(String password) {
+        this.password = password;
+    }
 }

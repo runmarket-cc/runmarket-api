@@ -48,6 +48,30 @@ public class EmailAdapter implements EmailPort {
         }
     }
 
+    @Override
+    public void sendPasswordResetEmail(String to, String resetLink) {
+        if (mailPassword.isBlank()) {
+            log.warn("[DEV] Password reset link for {}: {}", to, resetLink);
+            return;
+        }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(new InternetAddress(from, "RunMarket", "UTF-8"));
+            helper.setTo(to);
+            helper.setSubject("[RunMarket] 비밀번호 재설정 안내");
+            helper.setText(buildPasswordResetBody(resetLink), true);
+
+            mailSender.send(message);
+            log.info("Password reset email sent to {}", to);
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            log.error("Failed to send password reset email to {}", to, e);
+            throw new RuntimeException("Failed to send password reset email", e);
+        }
+    }
+
     private String buildEmailBody(String verificationLink) {
         return """
                 <html>
@@ -68,5 +92,27 @@ public class EmailAdapter implements EmailPort {
                 </body>
                 </html>
                 """.formatted(verificationLink);
+    }
+
+    private String buildPasswordResetBody(String resetLink) {
+        return """
+                <html>
+                <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #333;">RunMarket 비밀번호 재설정</h2>
+                    <p>아래 버튼을 클릭하여 비밀번호를 재설정하세요.</p>
+                    <p>이 링크는 30분 동안 유효합니다.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="%s"
+                           style="background-color: #4CAF50; color: white; padding: 14px 28px;
+                                  text-decoration: none; border-radius: 4px; font-size: 16px;">
+                            비밀번호 재설정하기
+                        </a>
+                    </div>
+                    <p style="color: #888; font-size: 12px;">
+                        본인이 요청하지 않은 경우 이 이메일을 무시하셔도 됩니다.
+                    </p>
+                </body>
+                </html>
+                """.formatted(resetLink);
     }
 }

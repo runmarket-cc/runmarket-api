@@ -2,6 +2,7 @@ package com.runmarket.pacer.web;
 
 import com.runmarket.pacer.domain.exception.EmailAlreadyExistsException;
 import com.runmarket.pacer.domain.exception.InvalidCredentialsException;
+import com.runmarket.pacer.domain.exception.InvalidPasswordResetTokenException;
 import com.runmarket.pacer.domain.exception.InvalidVerificationTokenException;
 import com.runmarket.pacer.domain.exception.TurnstileVerificationException;
 import com.runmarket.pacer.domain.exception.UserNotVerifiedException;
@@ -42,6 +43,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InvalidVerificationTokenException.class)
     public ResponseEntity<ProblemDetail> handleInvalidToken(InvalidVerificationTokenException e) {
         log.warn("Invalid verification token: user={}", SecurityUtils.currentUserEmail());
+        return problem(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidPasswordResetToken(InvalidPasswordResetTokenException e) {
+        log.warn("Invalid password reset token: user={}", SecurityUtils.currentUserEmail());
         return problem(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 

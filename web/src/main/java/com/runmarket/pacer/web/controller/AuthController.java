@@ -5,8 +5,14 @@ import com.runmarket.pacer.domain.port.in.auth.LoginCommand;
 import com.runmarket.pacer.domain.port.in.auth.LoginUseCase;
 import com.runmarket.pacer.domain.port.in.auth.RegisterCommand;
 import com.runmarket.pacer.domain.port.in.auth.RegisterUseCase;
+import com.runmarket.pacer.domain.port.in.auth.RequestPasswordResetCommand;
+import com.runmarket.pacer.domain.port.in.auth.RequestPasswordResetUseCase;
+import com.runmarket.pacer.domain.port.in.auth.ResetPasswordCommand;
+import com.runmarket.pacer.domain.port.in.auth.ResetPasswordUseCase;
 import com.runmarket.pacer.domain.port.in.auth.VerifyEmailUseCase;
 import com.runmarket.pacer.web.dto.LoginRequest;
+import com.runmarket.pacer.web.dto.PasswordResetConfirmRequest;
+import com.runmarket.pacer.web.dto.PasswordResetEmailRequest;
 import com.runmarket.pacer.web.dto.RegisterRequest;
 import com.runmarket.pacer.web.dto.RegisterResponse;
 import com.runmarket.pacer.web.dto.TokenResponse;
@@ -30,6 +36,8 @@ public class AuthController {
     private final LoginUseCase loginUseCase;
     private final RegisterUseCase registerUseCase;
     private final VerifyEmailUseCase verifyEmailUseCase;
+    private final RequestPasswordResetUseCase requestPasswordResetUseCase;
+    private final ResetPasswordUseCase resetPasswordUseCase;
     private final TokenResponseMapper tokenResponseMapper;
 
     @PostMapping("/login")
@@ -51,5 +59,20 @@ public class AuthController {
     public ResponseEntity<RegisterResponse> verify(@Valid @RequestBody VerifyEmailRequest request) {
         verifyEmailUseCase.verify(request.token());
         return ResponseEntity.ok(new RegisterResponse("이메일 인증이 완료되었습니다. 로그인하실 수 있습니다."));
+    }
+
+    @PostMapping("/password-reset")
+    public ResponseEntity<RegisterResponse> requestPasswordReset(@Valid @RequestBody PasswordResetEmailRequest request) {
+        requestPasswordResetUseCase.requestReset(
+                new RequestPasswordResetCommand(request.email(), request.turnstileToken()));
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(new RegisterResponse("비밀번호 재설정 메일을 발송했습니다."));
+    }
+
+    @PatchMapping("/password-reset")
+    public ResponseEntity<RegisterResponse> resetPassword(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        resetPasswordUseCase.reset(
+                new ResetPasswordCommand(request.token(), request.newPassword()));
+        return ResponseEntity.ok(new RegisterResponse("비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요."));
     }
 }
