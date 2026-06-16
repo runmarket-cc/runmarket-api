@@ -7,6 +7,7 @@ import com.runmarket.pacer.infrastructure.persistence.repository.RunJpaRepositor
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,5 +26,18 @@ public class RunPersistenceAdapter implements RunRepository {
     @Override
     public Optional<UUID> findIdByUserIdAndClientRunId(UUID userId, String clientRunId) {
         return runJpaRepository.findIdByUserIdAndClientRunId(userId, clientRunId);
+    }
+
+    @Override
+    public List<Run> findSummariesByUserId(UUID userId) {
+        return runJpaRepository.findByUserIdOrderByStartedAtDesc(userId).stream()
+                .map(runMapper::toDomainSummary)
+                .toList();
+    }
+
+    @Override
+    public Optional<Run> findByIdAndUserIdWithRoute(UUID runId, UUID userId) {
+        return runJpaRepository.findByIdAndUserIdWithRoute(runId, userId)
+                .map(runMapper::toDomainWithRoute);
     }
 }

@@ -51,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/races/*/like").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/liked-races").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/runs", "/api/v1/users/me/runs/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

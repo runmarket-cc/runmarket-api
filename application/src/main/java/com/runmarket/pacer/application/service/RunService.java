@@ -3,6 +3,7 @@ package com.runmarket.pacer.application.service;
 import com.runmarket.pacer.domain.model.Run;
 import com.runmarket.pacer.domain.model.RunPoint;
 import com.runmarket.pacer.domain.model.User;
+import com.runmarket.pacer.domain.port.in.run.GetRunsUseCase;
 import com.runmarket.pacer.domain.port.in.run.SaveRunCommand;
 import com.runmarket.pacer.domain.port.in.run.SaveRunUseCase;
 import com.runmarket.pacer.domain.port.out.run.RunRepository;
@@ -25,15 +26,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class RunService implements SaveRunUseCase {
+public class RunService implements SaveRunUseCase, GetRunsUseCase {
 
     private final RunRepository runRepository;
     private final UserRepository userRepository;
 
     @Override
     public UUID save(SaveRunCommand command) {
-        User user = userRepository.findByEmail(command.userEmail())
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
+        User user = getUser(command.userEmail());
 
         // 멱등: 이미 업로드된 런이면 새로 만들지 않고 기존 id 반환.
         var existing = runRepository.findIdByUserIdAndClientRunId(user.getId(), command.clientRunId());
@@ -54,6 +54,24 @@ public class RunService implements SaveRunUseCase {
             return runRepository.findIdByUserIdAndClientRunId(user.getId(), command.clientRunId())
                     .orElseThrow(() -> e);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Run> getUserRuns(String userEmail) {
+        return runRepository.findSummariesByUserId(getUser(userEmail).getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Run getUserRun(String userEmail, UUID runId) {
+        return runRepository.findByIdAndUserIdWithRoute(runId, getUser(userEmail).getId())
+                .orElseThrow(() -> new NoSuchElementException("러닝 기록을 찾을 수 없습니다: " + runId));
+    }
+
+    private User getUser(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
     }
 
     private Run toRun(SaveRunCommand command, UUID userId) {
