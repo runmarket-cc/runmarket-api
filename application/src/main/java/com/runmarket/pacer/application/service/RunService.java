@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -82,7 +82,7 @@ public class RunService implements SaveRunUseCase, GetRunsUseCase {
                         .lat(p.lat())
                         .lng(p.lng())
                         .accuracy(p.accuracy())
-                        .recordedAt(toUtc(Instant.ofEpochMilli(p.t())))
+                        .recordedAt(toLocal(Instant.ofEpochMilli(p.t())))
                         .build())
                 .toList();
 
@@ -92,8 +92,8 @@ public class RunService implements SaveRunUseCase, GetRunsUseCase {
                 .groupId(command.groupId())
                 .runnerId(command.runnerId())
                 .color(command.color())
-                .startedAt(toUtc(command.startedAt()))
-                .endedAt(toUtc(command.endedAt()))
+                .startedAt(toLocal(command.startedAt()))
+                .endedAt(toLocal(command.endedAt()))
                 .durationSec(command.durationSec())
                 .distanceKm(command.distanceKm())
                 .avgPaceSecPerKm(command.avgPaceSecPerKm())
@@ -101,7 +101,7 @@ public class RunService implements SaveRunUseCase, GetRunsUseCase {
                 .build();
     }
 
-    private static LocalDateTime toUtc(Instant instant) {
-        return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+    private static LocalDateTime toLocal(Instant instant) {
+        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
     }
 }

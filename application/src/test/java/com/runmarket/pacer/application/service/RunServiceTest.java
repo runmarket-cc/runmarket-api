@@ -15,7 +15,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -101,18 +101,18 @@ class RunServiceTest {
         assertThat(saved.getDurationSec()).isEqualTo(120);
         assertThat(saved.getDistanceKm()).isEqualTo(0.42);
         assertThat(saved.getAvgPaceSecPerKm()).isEqualTo(286);
-        // Instant → UTC LocalDateTime
-        assertThat(saved.getStartedAt()).isEqualTo(LocalDateTime.ofInstant(START, ZoneOffset.UTC));
-        assertThat(saved.getEndedAt()).isEqualTo(LocalDateTime.ofInstant(START.plusSeconds(120), ZoneOffset.UTC));
+        // Instant → 서버 기본 시간대(KST) LocalDateTime
+        assertThat(saved.getStartedAt()).isEqualTo(LocalDateTime.ofInstant(START, ZoneId.systemDefault()));
+        assertThat(saved.getEndedAt()).isEqualTo(LocalDateTime.ofInstant(START.plusSeconds(120), ZoneId.systemDefault()));
 
         assertThat(saved.getRoute()).hasSize(3);
         // seq는 0부터 순서대로 부여된다
         assertThat(saved.getRoute()).extracting("seq").containsExactly(0, 1, 2);
         // 정확도는 그대로(누락 시 null) 전달된다
         assertThat(saved.getRoute()).extracting("accuracy").containsExactly(5.0, null, 8.5);
-        // epoch ms → UTC LocalDateTime
+        // epoch ms → 서버 기본 시간대(KST) LocalDateTime
         assertThat(saved.getRoute().get(1).getRecordedAt())
-                .isEqualTo(LocalDateTime.ofInstant(START.plusSeconds(3), ZoneOffset.UTC));
+                .isEqualTo(LocalDateTime.ofInstant(START.plusSeconds(3), ZoneId.systemDefault()));
     }
 
     @Test
