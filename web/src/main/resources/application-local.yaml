@@ -18,7 +18,7 @@ spring:
 
 jwt:
   secret: runmarket-secret-key-must-be-at-least-512-bits-for-hs512-algorithm!!!
-  expiration: 86400000
+  expiration: 2592000000
 
 logging:
   level:
