@@ -7,4 +7,6 @@ public interface TokenProvider {
     AuthToken generateToken(User user);
     boolean validateToken(String token);
     String getSubject(String token);
+    boolean isExpiringWithin(String token, long durationMs);
+    AuthToken refreshToken(String token);
 }

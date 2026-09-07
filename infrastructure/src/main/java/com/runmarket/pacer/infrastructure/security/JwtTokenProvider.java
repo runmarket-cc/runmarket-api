@@ -19,10 +19,15 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @ConditionalOnProperty(name = "jwt.expiration")
 public class JwtTokenProvider implements TokenProvider, SocketTokenProvider {
+
+    private static final Set<String> STANDARD_CLAIMS = Set.of(
+            "sub", "iat", "exp", "nbf", "jti", "aud", "iss"
+    );
 
     private final SecretKey secretKey;
     private final long expirationMs;
@@ -95,5 +100,41 @@ public class JwtTokenProvider implements TokenProvider, SocketTokenProvider {
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
+    }
+
+    @Override
+    public boolean isExpiringWithin(String token, long durationMs) {
+        try {
+            Date expiration = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .getExpiration();
+            long remaining = expiration.getTime() - System.currentTimeMillis();
+            return remaining > 0 && remaining <= durationMs;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public AuthToken refreshToken(String token) {
+        var claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        JwtBuilder builder = Jwts.builder()
+                .subject(claims.getSubject());
+
+        claims.forEach((key, value) -> {
+            if (!STANDARD_CLAIMS.contains(key)) {
+                builder.claim(key, value);
+            }
+        });
+
+        return build(builder);
     }
 }
