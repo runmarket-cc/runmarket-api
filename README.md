@@ -43,6 +43,7 @@ RunMarket 백엔드는 모바일 앱(`runmarket-app`), 웹 프론트엔드(`runm
 │                    `gudrb963/runmarket-pacer-socket` (socket)          │
 │                    `gudrb963/runmarket-pacer-batch` (batch)            │
 │  - Database     : PostgreSQL 17 (Flyway DB Migration)                   │
+│  - Backup & DR  : Databasus (Daily Automated Backup & Restore Verify)   │
 │  - Ingress      : Nginx Ingress Controller (`api.runmarket.cc`)         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -134,7 +135,7 @@ pacer/
 | **Language / Platform** | Java `25` |
 | **Framework** | Spring Boot `4.1.0-M4` |
 | **Web & Async** | Spring MVC, Spring WebFlux, Reactive Redis |
-| **Database & Persistence** | PostgreSQL `17`, Spring Data JPA, Flyway Migration |
+| **Database & Persistence** | PostgreSQL `17`, Spring Data JPA, Flyway Migration, Databasus (Daily Backup & Restore Verification) |
 | **Security & Auth** | Spring Security, JJWT `0.13.0`, Cloudflare Turnstile |
 | **Batch & Crawling** | Spring Batch, Jsoup `1.18.3` |
 | **Container Build** | Google Jib `3.5.3` |
@@ -175,7 +176,7 @@ pacer/
 
 ## ☁️ Kubernetes 배포 연동 (`iac`)
 
-`pacer` 빌드 산출물은 `iac` 프로젝트의 Helm Chart(`helm/runmarket`)를 통해 Kubernetes 클러스터에 배포됩니다.
+`pacer` 빌드 산출물은 `iac` 프로젝트의 Helm Chart(`helm/runmarket`)를 통해 Kubernetes 클러스터에 배포되며, 데이터베이스는 `databasus` 시스템에 의해 일일 자동 백업 및 복구 테스트(Restore Verification)가 상시 수행됩니다.
 
 ### 필수 Kubernetes Secret 구성 (`runmarket-app-secrets`, `runmarket-db-credentials`)
 ```bash
